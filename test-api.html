@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PHP API Test Panel - Updated</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        h1 { color: #333; }
+        .test-section {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background: #45a049; }
+        .result {
+            background: #f0f0f0;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 15px;
+            overflow-x: auto;
+        }
+        pre {
+            margin: 0;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .success { color: green; }
+        .error { color: red; }
+        select, input {
+            padding: 8px;
+            margin: 5px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            width: 200px;
+        }
+        .form-group {
+            margin-bottom: 10px;
+        }
+        label {
+            display: inline-block;
+            width: 120px;
+            font-weight: bold;
+        }
+        .note {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 15px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <h1>📡 Face Attendance System - PHP API Test Panel</h1>
+    <p>Testing backend with Student ID format: <strong>LCSMT-NGA-XXX-ADM-XXXXXXX</strong></p>
+    
+    <div class="note">
+        <strong>📌 Note:</strong> Student ID can be any format. Example: LCSMT-NGA-005-ADM-1001530<br>
+        Year Intake format: e.g., "2024 September" or "2024-09"
+    </div>
+    
+    <div class="test-section">
+        <h2>1. Test Database Connection</h2>
+        <button onclick="testDatabase()">Test Database</button>
+        <div id="db-result" class="result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>2. Test API Endpoint</h2>
+        <button onclick="testAPI()">Test API (GET)</button>
+        <button onclick="testAPIPost()">Test API (POST)</button>
+        <div id="api-result" class="result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>3. Student Registration</h2>
+        <div class="form-group">
+            <label>Student ID:</label>
+            <input type="text" id="student_id" placeholder="LCSMT-NGA-005-ADM-1001530" value="LCSMT-NGA-001-ADM-1001001">
+        </div>
+        <div class="form-group">
+            <label>Full Name:</label>
+            <input type="text" id="full_name" placeholder="Full Name" value="John Doe">
+        </div>
+        <div class="form-group">
+            <label>Department:</label>
+            <select id="department">
+                <option value="Computer Software Engineering">Computer Software Engineering</option>
+                <option value="Mass Communication">Mass Communication</option>
+                <option value="Psychology">Psychology</option>
+                <option value="Banking Operations">Banking Operations</option>
+                <option value="Nursing">Nursing</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>Year Intake:</label>
+            <input type="text" id="year_intake" placeholder="2024 September or 2024-09" value="2024 September">
+        </div>
+        <div class="form-group">
+            <label>Semester:</label>
+            <select id="semester">
+                <option value="1">Semester 1</option>
+                <option value="2">Semester 2</option>
+                <option value="3">Semester 3</option>
+                <option value="4">Semester 4</option>
+                <option value="5">Semester 5</option>
+                <option value="6">Semester 6</option>
+            </select>
+        </div>
+        <button onclick="testRegister()">Register Student</button>
+        <div id="register-result" class="result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>4. Mark Attendance (Face Recognition)</h2>
+        <button onclick="testAttendance()">Mark Attendance</button>
+        <div id="attendance-result" class="result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>5. Get Statistics</h2>
+        <button onclick="testStats()">Get Stats</button>
+        <div id="stats-result" class="result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>6. Get All Students</h2>
+        <button onclick="testStudents()">Get Students</button>
+        <div id="students-result" class="result"></div>
+    </div>
+    
+    <script>
+        const API_BASE = 'http://localhost/face-attendance-api/api';
+        
+        async function testDatabase() {
+            try {
+                const response = await fetch('http://localhost/face-attendance-api/test-db.php');
+                const data = await response.json();
+                document.getElementById('db-result').innerHTML = `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+            } catch (error) {
+                document.getElementById('db-result').innerHTML = `<span class="error">Error: ${error.message}</span>`;
+            }
+        }
+        
+        async function testAPI() {
+            try {
+                const response = await fetch(`${API_BASE}/test.php`);
+                const data = await response.json();
+                document.getElementById('api-result').innerHTML = `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+            } catch (error) {
+                document.getElementById('api-result').innerHTML = `<span class="error">Error: ${error.message}</span>`;
+            }
+        }
+        
+        async function testAPIPost() {
+            try {
+                const response = await fetch(`${API_BASE}/test.php`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ test: 'Hello from browser' })
+                });
+                const data = await response.json();
+                document.getElementById('api-result').innerHTML = `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+            } catch (error) {
+                document.getElementById('api-result').innerHTML = `<span class="error">Error: ${error.message}</span>`;
+            }
+        }
+        
+        async function testRegister() {
+            // Get form values
+            const student_id = document.getElementById('student_id').value;
+            const full_name = document.getElementById('full_name').value;
+            const department = document.getElementById('department').value;
+            const year_intake = document.getElementById('year_intake').value;
+            const semester = document.getElementById('semester').value;
+            
+            // Create a test image with student info
+            const canvas = document.createElement('canvas');
+            canvas.width = 300;
+            canvas.height = 300;
+            const ctx = canvas.getContext('2d');
+            
+            // Background
+            ctx.fillStyle = '#e0e0e0';
+            ctx.fillRect(0, 0, 300, 300);
+            
+            // Face circle
+            ctx.fillStyle = '#ffdb9f';
+            ctx.beginPath();
+            ctx.arc(150, 130, 60, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Eyes
+            ctx.fillStyle = '#000';
+            ctx.beginPath();
+            ctx.arc(120, 110, 5, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(180, 110, 5, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Smile
+            ctx.beginPath();
+            ctx.arc(150, 150, 25, 0.1, Math.PI - 0.1);
+            ctx.stroke();
+            
+            // Text
+            ctx.fillStyle = '#000';
+            ctx.font = '12px Arial';
+            ctx.fillText(full_name, 100, 220);
+            ctx.fillText(student_id, 80, 240);
+            
+            const imageData = canvas.toDataURL();
+            
+            const studentData = {
+                student_id: student_id,
+                full_name: full_name,
+                department: department,
+                year_intake: year_intake,
+                semester: parseInt(semester),
+                image: imageData
+            };
+            
+            try {
+                const response = await fetch(`${API_BASE}/register.php`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(studentData)
+                });
+                const data = await response.json();
+                document.getElementById('register-result').innerHTML = `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+            } catch (error) {
+                document.getElementById('register-result').innerHTML = `<span class="error">Error: ${error.message}</span>`;
+            }
+        }
+        
+        async function testAttendance() {
+            // Create a simple test image
+            const canvas = document.createElement('canvas');
+            canvas.width = 200;
+            canvas.height = 200;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#cccccc';
+            ctx.fillRect(0, 0, 200, 200);
+            ctx.fillStyle = '#000000';
+            ctx.font = '14px Arial';
+            ctx.fillText('Face Test', 60, 100);
+            const imageData = canvas.toDataURL();
+            
+            try {
+                const response = await fetch(`${API_BASE}/recognize.php`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ image: imageData })
+                });
+                const data = await response.json();
+                document.getElementById('attendance-result').innerHTML = `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+            } catch (error) {
+                document.getElementById('attendance-result').innerHTML = `<span class="error">Error: ${error.message}</span>`;
+            }
+        }
+        
+        async function testStats() {
+            try {
+                const response = await fetch(`${API_BASE}/stats.php`);
+                const data = await response.json();
+                document.getElementById('stats-result').innerHTML = `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+            } catch (error) {
+                document.getElementById('stats-result').innerHTML = `<span class="error">Error: ${error.message}</span>`;
+            }
+        }
+        
+        async function testStudents() {
+            try {
+                const response = await fetch(`${API_BASE}/students.php`);
+                const data = await response.json();
+                document.getElementById('students-result').innerHTML = `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+            } catch (error) {
+                document.getElementById('students-result').innerHTML = `<span class="error">Error: ${error.message}</span>`;
+            }
+        }
+    </script>
+</body>
+</html>

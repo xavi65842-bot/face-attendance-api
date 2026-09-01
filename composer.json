@@ -1,0 +1,13 @@
+{
+    "require": {
+        "aws/aws-sdk-php": "3.290.*"
+    },
+    "config": {
+        "platform": {
+            "php": "8.2.12"
+        },
+        "audit": {
+            "block-insecure": false
+        }
+    }
+}

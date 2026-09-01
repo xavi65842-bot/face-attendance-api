@@ -1,0 +1,9 @@
+/vendor/
+.env
+/uploads/*.jpg
+/uploads/*.png
+/uploads/*.jpeg
+/debug/
+*.log
+.DS_Store
+.vscode/
