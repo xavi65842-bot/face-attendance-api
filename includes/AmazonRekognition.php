@@ -5,95 +5,107 @@
 require_once __DIR__ . '/../vendor/autoload.php';
 require_once __DIR__ . '/../config-aws.php';
 
-use Aws\Rekognition\RekognitionClient;
+use AwsRekognitionRekognitionClient;
 
 class AmazonRekognition {
     private $client;
     private $collectionId;
     
     public function __construct() {
-        // Initialize AWS Rekognition client
         $this->client = new RekognitionClient([
-            'version' => 'latest',
-            'region'  => AWS_REGION,
+            'region'      => AWS_REGION,
+            'version'     => 'latest',
             'credentials' => [
                 'key'    => AWS_ACCESS_KEY,
                 'secret' => AWS_SECRET_KEY,
-            ],
-            'http' => [
-                'verify' => false  // Disable SSL verification for local development
             ]
         ]);
+        
         $this->collectionId = AWS_COLLECTION_ID;
+        $this->ensureCollectionExists();
     }
     
     /**
-     * Create a face collection (run once during setup)
+     * Ensure collection exists in AWS Rekognition
      */
-    public function createCollection() {
+    private function ensureCollectionExists() {
         try {
-            $result = $this->client->createCollection([
-                'CollectionId' => $this->collectionId,
+            $this->client->describeCollection([
+                'CollectionId' => $this->collectionId
             ]);
-            return [
-                'success' => true,
-                'message' => 'Collection created successfully',
-                'collection_arn' => $result['CollectionArn']
-            ];
-        } catch (Exception $e) {
-            // Collection might already exist
-            if (strpos($e->getMessage(), 'ResourceAlreadyExistsException') !== false) {
-                return [
-                    'success' => true,
-                    'message' => 'Collection already exists'
-                ];
+        } catch (\AwsRekognition\Exception\RekognitionException $e) {
+            if ($e->getAwsErrorCode() === 'ResourceNotFoundException') {
+                try {
+                    $this->client->createCollection([
+                        'CollectionId' => $this->collectionId
+                    ]);
+                } catch (Exception $ce) {
+                    error_log('Failed to create AWS collection: ' . $ce->getMessage());
+                }
             }
-            return [
-                'success' => false,
-                'message' => $e->getMessage()
-            ];
+        } catch (Exception $e) {
+            error_log('AWS collection check error: ' . $e->getMessage());
         }
     }
     
     /**
-     * Index a face during student registration
-     * Uses DetectFaces first to validate, then indexFaces with duplicate detection built-in
-     * @param string $image_base64 - Base64 encoded image
-     * @param string $externalImageId - Student ID (to link face to student)
-     * @return array - Contains FaceId and confidence
+     * Reset and recreate fresh collection (clears ALL faces)
+     */
+    public function resetCollection() {
+        try {
+            try {
+                $this->client->deleteCollection([
+                    'CollectionId' => $this->collectionId
+                ]);
+            } catch (Exception $e) {
+                // Ignore if didn't exist
+            }
+            
+            $this->client->createCollection([
+                'CollectionId' => $this->collectionId
+            ]);
+            
+            return ['success' => true, 'message' => 'AWS Rekognition collection created fresh and clean.'];
+        } catch (Exception $e) {
+            return ['success' => false, 'error' => $e->getMessage()];
+        }
+    }
+    
+    /**
+     * Index a student face with high-precision quality check
      */
     public function indexFace($image_base64, $externalImageId) {
         $imageBytes = base64_decode($image_base64);
         
         try {
-            // STEP A: Detect faces first to validate image quality
+            // Validate face is detected
             $detectResult = $this->client->detectFaces([
                 'Image' => ['Bytes' => $imageBytes],
                 'Attributes' => ['DEFAULT']
             ]);
             
             if (empty($detectResult['FaceDetails'])) {
-                return ['success' => false, 'error' => 'No face detected in the image. Please ensure your face is clearly visible.'];
+                return ['success' => false, 'error' => 'No face detected in the image. Please ensure your face is clearly visible with good lighting.'];
             }
             
             $faceDetail = $detectResult['FaceDetails'][0];
             $faceConfidence = $faceDetail['Confidence'];
             
-            if ($faceConfidence < 90) {
-                return ['success' => false, 'error' => "Face quality too low ({$faceConfidence}%). Please use better lighting and face the camera directly."];
+            if ($faceConfidence < 85) {
+                return ['success' => false, 'error' => "Face quality too low (" . round($faceConfidence) . "%). Please use better lighting and face the camera directly."];
             }
             
-            // STEP B: Index the face
+            // Index face into AWS collection
             $result = $this->client->indexFaces([
                 'CollectionId' => $this->collectionId,
                 'Image' => ['Bytes' => $imageBytes],
                 'ExternalImageId' => (string)$externalImageId,
                 'MaxFaces' => 1,
-                'QualityFilter' => 'HIGH',  // Only accept high quality faces
+                'QualityFilter' => 'AUTO',
             ]);
             
             if (empty($result['FaceRecords'])) {
-                return ['success' => false, 'error' => 'Face quality too low for registration. Please improve lighting and try again.'];
+                return ['success' => false, 'error' => 'Face quality too low for biometric registration. Please improve lighting and try again.'];
             }
             
             $faceRecord = $result['FaceRecords'][0];
@@ -111,31 +123,16 @@ class AmazonRekognition {
     }
     
     /**
-     * Search for a face in the collection — used for DUPLICATE CHECK during registration
-     * Returns matched=true even at 60% similarity to block duplicates broadly
+     * Fast duplicate check during registration
      */
     public function searchFaceForDuplicateCheck($image_base64) {
         $imageBytes = base64_decode($image_base64);
         
         try {
-            // First detect if there's actually a face in the image
-            $detectResult = $this->client->detectFaces([
-                'Image' => ['Bytes' => $imageBytes],
-                'Attributes' => ['DEFAULT']
-            ]);
-            
-            if (empty($detectResult['FaceDetails'])) {
-                return [
-                    'success' => false,
-                    'error' => 'No face detected in image for duplicate check'
-                ];
-            }
-            
-            // Now search the collection
             $result = $this->client->searchFacesByImage([
                 'CollectionId' => $this->collectionId,
                 'Image' => ['Bytes' => $imageBytes],
-                'FaceMatchThreshold' => 70,  // 70% threshold for duplicate detection
+                'FaceMatchThreshold' => 75,
                 'MaxFaces' => 5
             ]);
             
@@ -143,7 +140,6 @@ class AmazonRekognition {
                 return ['success' => true, 'matched' => false];
             }
             
-            // Get the best match (highest similarity)
             $bestMatch = $result['FaceMatches'][0];
             foreach ($result['FaceMatches'] as $match) {
                 if ($match['Similarity'] > $bestMatch['Similarity']) {
@@ -159,20 +155,6 @@ class AmazonRekognition {
                 'external_image_id' => $bestMatch['Face']['ExternalImageId'] ?? null,
                 'all_matches' => count($result['FaceMatches'])
             ];
-            
-        } catch (\Aws\Rekognition\Exception\RekognitionException $e) {
-            // InvalidParameterException means no face in image — treat as error, NOT as "no match"
-            if (strpos($e->getMessage(), 'InvalidParameterException') !== false ||
-                strpos($e->getMessage(), 'no faces') !== false) {
-                return [
-                    'success' => false,
-                    'error' => 'No face detected in image. Please ensure your face is clearly visible.'
-                ];
-            }
-            return [
-                'success' => false,
-                'error' => $e->getMessage()
-            ];
         } catch (Exception $e) {
             return [
                 'success' => false,
@@ -182,7 +164,7 @@ class AmazonRekognition {
     }
     
     /**
-     * Search for a face in the collection — used for ATTENDANCE recognition
+     * Fast & accurate search for attendance verification
      */
     public function searchFace($image_base64) {
         $imageBytes = base64_decode($image_base64);
@@ -191,7 +173,7 @@ class AmazonRekognition {
             $result = $this->client->searchFacesByImage([
                 'CollectionId' => $this->collectionId,
                 'Image' => ['Bytes' => $imageBytes],
-                'FaceMatchThreshold' => 80,  // 80% threshold for attendance
+                'FaceMatchThreshold' => 70, // Optimized for fast & accurate matching
                 'MaxFaces' => 1
             ]);
             
@@ -207,21 +189,6 @@ class AmazonRekognition {
                 'confidence' => $match['Similarity'],
                 'external_image_id' => $match['Face']['ExternalImageId'] ?? null
             ];
-            
-        } catch (\Aws\Rekognition\Exception\RekognitionException $e) {
-            if (strpos($e->getMessage(), 'InvalidParameterException') !== false ||
-                strpos($e->getMessage(), 'no faces') !== false) {
-                return [
-                    'success' => false,
-                    'matched' => false,
-                    'error' => 'No face detected in image. Please face the camera directly.'
-                ];
-            }
-            return [
-                'success' => false,
-                'matched' => false,
-                'error' => $e->getMessage()
-            ];
         } catch (Exception $e) {
             return [
                 'success' => false,
@@ -232,8 +199,7 @@ class AmazonRekognition {
     }
     
     /**
-     * Delete a face from collection (when student is deleted)
-     * @param string $faceId - Face ID to delete
+     * Delete face by ID
      */
     public function deleteFace($faceId) {
         try {
@@ -241,36 +207,9 @@ class AmazonRekognition {
                 'CollectionId' => $this->collectionId,
                 'FaceIds' => [$faceId]
             ]);
-            return [
-                'success' => true,
-                'deleted' => $result['DeletedFaces']
-            ];
+            return ['success' => true, 'deleted' => $result['DeletedFaces']];
         } catch (Exception $e) {
-            return [
-                'success' => false,
-                'error' => $e->getMessage()
-            ];
-        }
-    }
-    
-    /**
-     * List all faces in the collection (for debugging)
-     */
-    public function listFaces() {
-        try {
-            $result = $this->client->listFaces([
-                'CollectionId' => $this->collectionId,
-                'MaxResults' => 100
-            ]);
-            return [
-                'success' => true,
-                'faces' => $result['Faces']
-            ];
-        } catch (Exception $e) {
-            return [
-                'success' => false,
-                'error' => $e->getMessage()
-            ];
+            return ['success' => false, 'error' => $e->getMessage()];
         }
     }
 }
