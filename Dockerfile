@@ -1,6 +1,6 @@
 FROM php:8.2-apache
 
-# Install system dependencies & PHP extensions (pdo_mysql, mysqli, curl, gd, mbstring)
+# Install PDO MySQL, mysqli, and essential extensions
 RUN apt-get update && apt-get install -y \
     libpng-dev \
     libjpeg-dev \
@@ -16,16 +16,18 @@ RUN apt-get update && apt-get install -y \
 # Enable Apache mod_rewrite & headers
 RUN a2enmod rewrite headers
 
-# Copy application files
 WORKDIR /var/www/html
 COPY . /var/www/html/
 
-# Create and set permissions for uploads directory
+# Permissions for uploaded images
 RUN mkdir -p /var/www/html/uploads && chmod -R 777 /var/www/html/uploads
 
-# Configure Apache port mapping for Railway dynamic PORT
-RUN sed -i 's/Listen 80/Listen ${PORT}/' /etc/apache2/ports.conf && \
-    sed -i 's/:80/:${PORT}/' /etc/apache2/sites-available/000-default.conf
+# Add entrypoint script to bind dynamic Railway PORT at runtime
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 ENV PORT=80
 EXPOSE 80
+
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
+CMD ["apache2-foreground"]
