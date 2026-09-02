@@ -1,16 +1,32 @@
 #!/bin/bash
 set -e
 
-# Railway provides dynamic $PORT (or defaults to 80)
-PORT="${PORT:-80}"
+PORT="${PORT:-8080}"
 
-echo "Starting Apache on port $PORT..."
+echo "Configuring Apache to listen on port 80, 8080, and ${PORT}..."
 
-# Dynamically set Apache port
-sed -i "s/Listen .*/Listen ${PORT}/" /etc/apache2/ports.conf
-sed -i "s/<VirtualHost \*:.*/<VirtualHost \*:${PORT}>/" /etc/apache2/sites-available/000-default.conf
+# Configure ports.conf to listen on 80, 8080, and dynamic $PORT
+cat <<EOF > /etc/apache2/ports.conf
+Listen 80
+Listen 8080
+Listen ${PORT}
+EOF
 
-# Enable AllowOverride All in /var/www/html
-sed -i '/<Directory \/var\/www\/>/,/<\/Directory>/ s/AllowOverride None/AllowOverride All/' /etc/apache2/apache2.conf
+# Configure VirtualHost to accept requests on ANY port
+cat <<EOF > /etc/apache2/sites-available/000-default.conf
+<VirtualHost *:80 *:8080 *:${PORT} *:* >
+    ServerAdmin webmaster@localhost
+    DocumentRoot /var/www/html
+
+    <Directory /var/www/html>
+        Options FollowSymLinks
+        AllowOverride All
+        Require all granted
+    </Directory>
+
+    ErrorLog ${APACHE_LOG_DIR}/error.log
+    CustomLog ${APACHE_LOG_DIR}/access.log combined
+</VirtualHost>
+EOF
 
 exec "$@"
