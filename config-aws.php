@@ -10,7 +10,7 @@ if (file_exists($envFile)) {
         if (strpos($line, '#') === 0) continue;
         if (strpos($line, '=') === false) continue;
         list($key, $value) = array_map('trim', explode('=', $line, 2));
-        $value = trim($value, '""''');
+        $value = trim($value, '"' . "'");
         putenv("$key=$value");
         $_ENV[$key] = $value;
     }
