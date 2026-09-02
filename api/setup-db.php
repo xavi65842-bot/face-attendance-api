@@ -120,9 +120,41 @@ try {
         $stmt->execute($lec);
     }
 
-    sendResponse(true, 'Salvation Heritage Database schema and 13 faculty members installed successfully!', [
+    // 7. Seed Sample Salvation Heritage Students
+    $students = [
+        ['SAL-1001', 'Emmanuel Adebayo', 'SS2', '2026 January', 1],
+        ['SAL-1002', 'Chidinma Okoro', 'SS3', '2026 January', 1],
+        ['SAL-1003', 'Oluwaseun Balogun', 'JSS3', '2026 January', 1],
+        ['SAL-1004', 'Fatima Bello', 'SS1', '2026 January', 1],
+        ['SAL-1005', 'Godwin Eze', 'JSS2', '2026 January', 1]
+    ];
+
+    $stmtStu = $db->prepare("INSERT INTO students (student_id, full_name, department, year_intake, semester)
+        VALUES (?, ?, ?, ?, ?)
+        ON DUPLICATE KEY UPDATE 
+            full_name = VALUES(full_name),
+            department = VALUES(department),
+            year_intake = VALUES(year_intake),
+            semester = VALUES(semester)");
+
+    foreach ($students as $stu) {
+        $stmtStu->execute($stu);
+    }
+
+    // Seed initial attendance for demonstration
+    $today = date('Y-m-d');
+    $time = date('H:i:s');
+    $stmtAtt = $db->prepare("INSERT INTO attendance (student_id, department, semester, date, time, confidence, status)
+        VALUES (?, ?, ?, ?, ?, 98, 'present')
+        ON DUPLICATE KEY UPDATE status = VALUES(status)");
+
+    $stmtAtt->execute(['SAL-1001', 'SS2', 1, $today, $time]);
+    $stmtAtt->execute(['SAL-1002', 'SS3', 1, $today, $time]);
+
+    sendResponse(true, 'Salvation Heritage Database schema, 13 faculty members, and sample students installed successfully!', [
         'tables_created' => ['students', 'student_faces', 'lecturers', 'attendance_sessions', 'attendance'],
         'faculty_count' => count($lecturers),
+        'students_count' => count($students),
         'status' => 'READY_FOR_VERCEL'
     ]);
 
