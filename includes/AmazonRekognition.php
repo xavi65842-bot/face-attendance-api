@@ -47,6 +47,28 @@ class AmazonRekognition {
     }
     
     /**
+     * List all faces in collection (used by register.php & check-face.php)
+     */
+    public function listFaces() {
+        try {
+            $result = $this->client->listFaces([
+                'CollectionId' => $this->collectionId,
+                'MaxResults' => 100
+            ]);
+            return [
+                'success' => true,
+                'faces' => $result['Faces'] ?? []
+            ];
+        } catch (Exception $e) {
+            return [
+                'success' => false,
+                'faces' => [],
+                'error' => $e->getMessage()
+            ];
+        }
+    }
+    
+    /**
      * Reset and recreate fresh collection (clears ALL faces)
      */
     public function resetCollection() {
@@ -89,7 +111,7 @@ class AmazonRekognition {
             $faceDetail = $detectResult['FaceDetails'][0];
             $faceConfidence = $faceDetail['Confidence'];
             
-            if ($faceConfidence < 85) {
+            if ($faceConfidence < 80) {
                 return ['success' => false, 'error' => "Face quality too low (" . round($faceConfidence) . "%). Please use better lighting and face the camera directly."];
             }
             
