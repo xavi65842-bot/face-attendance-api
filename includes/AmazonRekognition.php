@@ -5,14 +5,12 @@
 require_once __DIR__ . '/../vendor/autoload.php';
 require_once __DIR__ . '/../config-aws.php';
 
-use AwsRekognitionRekognitionClient;
-
 class AmazonRekognition {
     private $client;
     private $collectionId;
     
     public function __construct() {
-        $this->client = new RekognitionClient([
+        $this->client = new \Aws\Rekognition\RekognitionClient([
             'region'      => AWS_REGION,
             'version'     => 'latest',
             'credentials' => [
@@ -33,7 +31,7 @@ class AmazonRekognition {
             $this->client->describeCollection([
                 'CollectionId' => $this->collectionId
             ]);
-        } catch (\AwsRekognition\Exception\RekognitionException $e) {
+        } catch (\Aws\Rekognition\Exception\RekognitionException $e) {
             if ($e->getAwsErrorCode() === 'ResourceNotFoundException') {
                 try {
                     $this->client->createCollection([
