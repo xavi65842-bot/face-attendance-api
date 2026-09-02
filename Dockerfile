@@ -21,8 +21,8 @@ COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 WORKDIR /var/www/html
 COPY . /var/www/html/
 
-# Install PHP dependencies (AWS SDK etc.)
-RUN composer install --no-dev --optimize-autoloader --no-interaction
+# Ensure AWS SDK is installed and autoloaded
+RUN composer require aws/aws-sdk-php:^3.290 --no-interaction --optimize-autoloader --ignore-platform-reqs
 
 # Create uploads directory
 RUN mkdir -p /var/www/html/uploads && chmod -R 777 /var/www/html/uploads
