@@ -1,6 +1,6 @@
 FROM php:8.2-cli
 
-# Install PDO MySQL, mysqli, and essential extensions
+# Install system dependencies + PHP extensions
 RUN apt-get update && apt-get install -y \
     libpng-dev \
     libjpeg-dev \
@@ -10,18 +10,24 @@ RUN apt-get update && apt-get install -y \
     zip \
     unzip \
     curl \
+    git \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
-    && docker-php-ext-install pdo pdo_mysql mysqli gd mbstring
+    && docker-php-ext-install pdo pdo_mysql mysqli gd mbstring \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Install Composer
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 WORKDIR /var/www/html
 COPY . /var/www/html/
 
-# Permissions for uploaded images
+# Install PHP dependencies (AWS SDK etc.)
+RUN composer install --no-dev --optimize-autoloader --no-interaction
+
+# Create uploads directory
 RUN mkdir -p /var/www/html/uploads && chmod -R 777 /var/www/html/uploads
 
 ENV PORT=8080
 EXPOSE 8080
-EXPOSE 80
 
-# Start PHP built-in server bound to 0.0.0.0 and Railway's $PORT
 CMD ["sh", "-c", "php -S 0.0.0.0:${PORT:-8080} -t /var/www/html"]
